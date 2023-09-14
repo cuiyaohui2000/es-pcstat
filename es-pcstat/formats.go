@@ -23,7 +23,7 @@ package main
  */
 
 import (
-	"es-pcstat"
+	"github.com/zhangdapao995/es-pcstat"
 )
 
 type PcStatusList []es_pcstat.PcStatus

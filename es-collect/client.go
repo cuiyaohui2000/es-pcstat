@@ -43,7 +43,7 @@ var mapping = `
 	}
 `
 
-//es client for get shards or indices and more
+// es client for get shards or indices and more
 type Client struct {
 	Ip       string
 	Port     string
@@ -78,11 +78,11 @@ func OutputClient(ip string, port string, user string, password string) elastic.
 
 }
 
-func GetShardMap(client Client) ShardMap {
+func GetShardMap(client Client) (ShardMap, error) {
 	url := "http://" + client.Ip + ":" + client.Port + "/_cat/shards?h=state,index,shard,node,prirep"
 	body, err := httpGetRequest(url, client.User, client.Password)
 	if err != nil {
-		log.Printf("get indices error,%v", err)
+		return nil, err
 	}
 	lines := splitWithoutNull(body, "\n")
 
@@ -104,16 +104,16 @@ func GetShardMap(client Client) ShardMap {
 		shard := Shard{indexName: indexName, nodeName: nodeName, shardId: shardId, primary: primary}
 		shardKey := shard.getShardKey()
 		shardMap[shardKey] = shard
-		//log.Printf("%s , %s ,%s",columns[0], columns[1] ,columns[2])
+		// log.Printf("%s , %s ,%s",columns[0], columns[1] ,columns[2])
 	}
-	return shardMap
+	return shardMap, nil
 }
 
-func GetIndiceMap(client Client, indicesPrefix []string) IndexMap {
+func GetIndiceMap(client Client, indicesPrefix []string) (IndexMap, error) {
 	url := "http://" + client.Ip + ":" + client.Port + "/_cat/indices?h=index,uuid"
 	body, err := httpGetRequest(url, client.User, client.Password)
 	if err != nil {
-		log.Printf("get indices error,%v", err)
+		return nil, err
 	}
 	lines := splitWithoutNull(body, "\n")
 
@@ -125,9 +125,9 @@ func GetIndiceMap(client Client, indicesPrefix []string) IndexMap {
 		if checkInIndices(indexName, indicesPrefix) {
 			indexMap[indexName] = Index{indexName: indexName, uuid: uuid}
 		}
-		//log.Printf("%s , %s",columns[0], columns[1])
+		// log.Printf("%s , %s",columns[0], columns[1])
 	}
-	return indexMap
+	return indexMap, nil
 }
 
 func checkInIndices(index string, indicesPrefix []string) bool {
@@ -148,7 +148,7 @@ func FillShardMapFilterNode(shardMap ShardMap, indexMap IndexMap, nodeName strin
 		index, exist := indexMap[shard.indexName]
 		if (nodeName != "" && strings.Compare(shard.nodeName, nodeName) != 0) || !exist {
 			if !exist {
-				//log.Printf("skip fill Shard uuid,can't get index, shard:%s", shard.getShardKey())
+				// log.Printf("skip fill Shard uuid,can't get index, shard:%s", shard.getShardKey())
 			}
 			delete(shardMap, shard.getShardKey())
 			continue
@@ -159,7 +159,7 @@ func FillShardMapFilterNode(shardMap ShardMap, indexMap IndexMap, nodeName strin
 	return shardMap
 }
 
-//split and skip empty String ""
+// split and skip empty String ""
 func splitWithoutNull(s, sep string) []string {
 	strs := strings.Split(s, sep)
 	res := make([]string, 0)
@@ -172,7 +172,7 @@ func splitWithoutNull(s, sep string) []string {
 }
 
 func initPcstatIndex(esClient elastic.Client, indexPrefix string) (string, error) {
-	//create index if not exist
+	// create index if not exist
 	realIndex := indexPrefix + "-" + time.Now().Format("2006_01_02")
 	exist, err := esClient.IndexExists(realIndex).Do(context.TODO())
 	if err != nil {
@@ -186,7 +186,7 @@ func initPcstatIndex(esClient elastic.Client, indexPrefix string) (string, error
 		}
 	}
 
-	//detele index if exist
+	// detele index if exist
 	dayBefore := time.Now().AddDate(0, 0, -KEEP_INDEX_NUM-1)
 	toDeleteIndex := indexPrefix + "-" + dayBefore.Format("2006_01_02")
 	deleteExist, _ := esClient.IndexExists(toDeleteIndex).Do(context.TODO())
@@ -238,13 +238,13 @@ func httpGetRequest(url string, user string, password string) (string, error) {
 		fmt.Println("req err:")
 		panic(err)
 	}
-	//设置用户密码和跳过tls
+	// 设置用户密码和跳过tls
 	rep.SetBasicAuth(user, password)
 	tr := &http.Transport{
 		TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
 	}
 	client := &http.Client{Timeout: 30 * time.Second, Transport: tr}
-	//获取结果
+	// 获取结果
 	resp, err := client.Do(rep)
 	if err != nil {
 		return "", err

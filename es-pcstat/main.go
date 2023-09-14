@@ -24,9 +24,9 @@ package main
 
 import (
 	"bufio"
-	"es-pcstat/es-collect"
 	"flag"
 	"fmt"
+	"github.com/zhangdapao995/es-pcstat/es-collect"
 	"io"
 	"os"
 	"strconv"
@@ -127,25 +127,31 @@ func main() {
 	for {
 		collectStart := time.Now()
 		fmt.Printf("start collect time, %s\n", collectStart)
-		indexMap := es_collect.GetIndiceMap(client, indicesPrefix)
-		shardMap := es_collect.GetShardMap(client)
-		shardMap = es_collect.FillShardMapFilterNode(shardMap, indexMap, nodeName)
-		indexStats := shardMap.Stats(path)
-
-		if outputTypeFlag == ES {
-			var outputclient elastic.Client
-			if config[OUTPUT_ES_USER] == "" || config[OUTPUT_ES_PASSWORD] == "" || config[OUTPUT_ES_IP_FIELD] == "" || config[OUTPUT_ES_PORT_FIELD] == "" {
-				outputclient = es_collect.OutputClient(config[ES_IP_FIELD], config[ES_PORT_FIELD], config[ES_USER], config[ES_PASSWORD])
+		indexMap, err := es_collect.GetIndiceMap(client, indicesPrefix)
+		if err == nil {
+			shardMap, err := es_collect.GetShardMap(client)
+			if err == nil {
+				shardMap = es_collect.FillShardMapFilterNode(shardMap, indexMap, nodeName)
+				indexStats := shardMap.Stats(path)
+				if outputTypeFlag == ES {
+					var outputclient elastic.Client
+					if config[OUTPUT_ES_USER] == "" || config[OUTPUT_ES_PASSWORD] == "" || config[OUTPUT_ES_IP_FIELD] == "" || config[OUTPUT_ES_PORT_FIELD] == "" {
+						outputclient = es_collect.OutputClient(config[ES_IP_FIELD], config[ES_PORT_FIELD], config[ES_USER], config[ES_PASSWORD])
+					} else {
+						outputclient = es_collect.OutputClient(config[OUTPUT_ES_IP_FIELD], config[OUTPUT_ES_PORT_FIELD], config[OUTPUT_ES_USER], config[OUTPUT_ES_PASSWORD])
+					}
+					indexStats.WriteToEs(outputclient, clusterName, nodeName, collectStart)
+				} else if outputTypeFlag == LOG {
+					indexStats.FormatForSLS(clusterName, nodeName, collectStart)
+				} else if outputTypeFlag == CONSOLE {
+					indexStats.FormatForConsole(sortFlag)
+				}
 			} else {
-				outputclient = es_collect.OutputClient(config[OUTPUT_ES_IP_FIELD], config[OUTPUT_ES_PORT_FIELD], config[OUTPUT_ES_USER], config[OUTPUT_ES_PASSWORD])
+				log.Printf("get indices error,%v", err)
 			}
-			indexStats.WriteToEs(outputclient, clusterName, nodeName, collectStart)
-		} else if outputTypeFlag == LOG {
-			indexStats.FormatForSLS(clusterName, nodeName, collectStart)
-		} else if outputTypeFlag == CONSOLE {
-			indexStats.FormatForConsole(sortFlag)
+		} else {
+			log.Printf("get indices error, %v", err)
 		}
-
 		waitToNextCollect(collectStart, collectIntervalFlag)
 	}
 }

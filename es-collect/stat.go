@@ -1,8 +1,8 @@
 package es_collect
 
 import (
-	"es-pcstat"
 	"fmt"
+	"github.com/zhangdapao995/es-pcstat"
 	"io/ioutil"
 	"path"
 	"sort"
@@ -23,7 +23,7 @@ type Shard struct {
 	uuid      string
 	primary   bool
 
-	//MB
+	// MB
 	pageCache      int
 	fileSuffixStat FileSuffixStat
 }
@@ -56,12 +56,12 @@ func getFiles(path string) []string {
 	}
 	for _, info := range dirList {
 		files = append(files, path+"/"+info.Name())
-		//fmt.Println(i, "=", v.Name())
+		// fmt.Println(i, "=", v.Name())
 	}
 	return files
 }
 
-//"" is file like SEGMENT_N
+// "" is file like SEGMENT_N
 func getFileSuffix(fileName string) string {
 	suffix := path.Ext(fileName)
 	if strings.HasPrefix(suffix, ".") {
@@ -84,7 +84,7 @@ type Index struct {
 
 	priPageCache   int
 	repPageCache   int
-	pageCache      int //total
+	pageCache      int // total
 	fileSuffixStat FileSuffixStat
 }
 
